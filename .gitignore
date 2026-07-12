@@ -1,0 +1,12 @@
+# Model weights are gigabytes — never commit them. Keep the folder, ignore the blobs.
+models/*.gguf
+
+# Python junk
+__pycache__/
+*.pyc
+*.egg-info/
+.venv/
+
+# PINN run outputs (checkpoints, exported STEP files, result JSONs land here)
+runs/
+

@@ -1,0 +1,24 @@
+[project]
+name = "physicsiq-pinn"
+version = "0.1.0"
+description = "Break-point (weak point) detection PINNs for CAD parts — JAX"
+requires-python = ">=3.11"
+dependencies = [
+    "jax",          # install jax[cuda12] manually for GPU (see README)
+    "optax",        # optimizers (Adam etc.) for JAX
+    "numpy",
+    "matplotlib",
+]
+
+[project.optional-dependencies]
+# PINNx (github.com/chaobrain/pinnx, the JAX rewrite of DeepXDE) is a good
+# next step once you outgrow our hand-rolled trainer — the Problem classes
+# here map 1:1 onto its PDE/geometry/BC concepts.
+pinnx = ["pinnx"]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/physicsiq_pinn"]
