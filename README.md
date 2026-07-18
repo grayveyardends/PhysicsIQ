@@ -2,7 +2,9 @@
 
 A local engineering copilot for FreeCAD:runs on a laptop GPU. has PINN for weak point detection
 
-![](assets/demoPinn.png)
+![this was made with fable](assets/fabledrone.png)
+![opus](assets/demoPinn.png)
+![](assets/weakpoints.png)
 
 ## Quick start
 
