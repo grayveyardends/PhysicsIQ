@@ -1,0 +1,19 @@
+{
+  "title": "Quadcopter Frame Assembly",
+  "goal": "Quadcopter Frame Assembly\n\nWe are building a quadcopter frame in the X configuration, similar to the F450. The main deck will be a rectangular plate, and four arms will extend from its corners. Landing gear mounts will be added to the bottom of the arms. We'll use carbon fiber material (Part > Primitives > Box for the main deck and arms, Part > Boolean operations for assembly). Dimensions are chosen to be similar to the F450 but slightly simplified. Arm length is 250mm, main deck width is 200mm, height is 150mm. Landing gear legs are 30mm long and 3mm diameter.",
+  "created": 1783938198.5030909,
+  "steps": {
+    "1": {
+      "status": "done",
+      "result": ""
+    },
+    "2": {
+      "status": "done",
+      "result": ""
+    },
+    "3": {
+      "status": "failed",
+      "result": "model error: model produced no answer (it may have spent the whole token budget thinking \u2014 try again or raise MaxTokens)"
+    }
+  }
+}

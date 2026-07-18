@@ -1,0 +1,3 @@
+# Step 3 — Add Bosses to MotorMounts for Load Distribution
+
+Create six new Part objects: 'MotorMount_Boss_30deg', 'MotorMount_Boss_90deg', 'MotorMount_Bell3_30deg', 'MotorMount_Bell3_90deg', 'MotorMount_Bell3_150deg', 'MotorMount_Bell3_270deg'. Each is a Part primitive: Box with dimensions 10x10x5mm. Position these bosses at the center of each 'Motor Mount' object's face (e.g., 'Motor Mount 1 (30deg)' and 'Motor Mount 2 (90deg)', etc.) to reinforce the mounting points where the Arms and Landing Legs attach. This will help prevent stress concentration and potential failure at these locations. Use the Part → Box command, set dimensions 10x10x5mm, and place them centered on the top face of each MotorMount object.

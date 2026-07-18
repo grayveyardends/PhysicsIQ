@@ -1,0 +1,3 @@
+# Step 2 — Replace Existing Standoffs with Larger, Stronger Ones
+
+Create six new Part objects: 'Standoff_Large_0', 'Standoff_Large_60', 'Standoff_Large_120', 'Standoff_Large_180', 'Standoff_Large_240', 'Standoff_Large_300'. Each is a Part primitive: Cylinder with diameter 10mm, height 20mm. Position them at the exact same locations (angles) as the original 'Standoff1' to 'Standoff6' objects, maintaining the same radial spacing (e.g., 60mm apart). These larger standoffs will provide a more robust mounting interface. Use the Part → Cylinder command, set dimensions 10mm diameter, 20mm height, and place them at the specified angles relative to the center of the BottomPlate (e.g., Standoff_Large_0 at 0°, Standoff_Large_60 at 60°, etc.).

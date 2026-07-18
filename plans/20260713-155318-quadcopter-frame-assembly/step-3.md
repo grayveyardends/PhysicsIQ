@@ -1,0 +1,3 @@
+# Step 3 — Position Arms and Create Landing Gear Mounts
+
+Place the four arms at the corners of the MainDeck. Use the absolute coordinates: Arm1 at (-100, -100, 0), Arm2 at (100, -100, 0), Arm3 at (100, 100, 0), Arm4 at (-100, 100, 0) [assuming MainDeck center at (0,0,0)]. Use Part > Boolean > Fuse to join each arm to the MainDeck at its corner. Add landing gear mount holes to the bottom of each arm (at z=0) by creating four new Part > Cylinder objects (radius 3mm, height 5mm) and placing them at the center of each arm's bottom face. Label these cylinders "GearMountHole1", "GearMountHole2", "GearMountHole3", "GearMountHole4".

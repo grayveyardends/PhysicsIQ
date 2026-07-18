@@ -1,0 +1,3 @@
+# Step 5 — Run Stress Analysis on Modified Drone Structure
+
+Perform a stress analysis on the entire drone structure. Apply a vertical load of 50N downwards onto the TopPlate (assuming gravity load). Simulate a 10N load per motor acting downwards through the center of each MotorMount (e.g., 'Motor Mount 1 (30deg)') and a 20N horizontal force (e.g., -10N in x-direction) acting on the 'Landing Leg 1 (30deg)' face. Fix the TopPlate and BottomPlate. The analysis should confirm reduced stress levels in the reinforced parts compared to the original design. Use `piq_tools.run_stress_analysis('Drone_Assembly')`.
