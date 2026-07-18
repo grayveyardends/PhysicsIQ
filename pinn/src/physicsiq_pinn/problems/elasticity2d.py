@@ -4,17 +4,17 @@ a plate with a circular hole pulled from one side (the "Kirsch problem").
 WHY THIS PROBLEM: it has a textbook analytical answer — the stress at the
 edge of the hole is 3x the applied stress (stress concentration factor
 Kt = 3 for an infinite plate). If our PINN reproduces that, the whole
-pipeline (autodiff → PDE residual → training → von Mises) is CORRECT,
+pipeline (autodiff -> PDE residual -> training -> von Mises) is CORRECT,
 and we can trust the same machinery on real 3D parts where no textbook
 answer exists.
 
 Geometry (quarter model, using symmetry — standard trick, converges 4x faster):
 
-        ŷ=1  ────────────── (traction-free)
-        │                  │
-   sym  │                  │ ← pulled with stress S (σxx = S)
-   ux=0 │   ◜ hole r=â     │
-        └──╯───────────────  ŷ=0, sym uy=0
+        ŷ=1  -------------- (traction-free)
+        |                  |
+   sym  |                  | <- pulled with stress S (σxx = S)
+   ux=0 |   ( hole r=â     |
+        +--)---------------  ŷ=0, sym uy=0
         x̂=0                x̂=1
 
 Everything inside is NONDIMENSIONAL: coordinates /L, stress /S,
@@ -41,9 +41,7 @@ class KirschPlate:
         rng = np.random.default_rng(seed)
         self._sample_points(rng, n_interior, n_ring, n_edge)
 
-    # ------------------------------------------------------------------
     # geometry sampling (pure numpy — happens once, before training)
-    # ------------------------------------------------------------------
     def _sample_points(self, rng, n_interior, n_ring, n_edge):
         a = self.a
 
@@ -72,19 +70,28 @@ class KirschPlate:
         self.x_symx = jnp.asarray(np.stack([np.zeros_like(t), t], 1))   # x̂=0
         self.x_symy = jnp.asarray(np.stack([t, np.zeros_like(t)], 1))   # ŷ=0
 
-    # ------------------------------------------------------------------
     # the displacement field (net + hard boundary conditions)
-    # ------------------------------------------------------------------
     def params_init(self, key):
         return mlp.init_params(key, self.layers)
 
     def _u(self, params, x):
-        """Displacement at ONE point, with symmetry built into the FORMULA:
-        ûx = x̂·N(...) is zero at x̂=0 no matter what the net says. Hard
-        constraints like this beat soft penalty losses every time you can
-        afford them."""
+        """Displacement at ONE point. Two tricks are baked into the formula:
+
+        1. Hard symmetry: multiplying by x̂ (resp. ŷ) makes ûx=0 at x̂=0
+           (resp. ûy=0 at ŷ=0) no matter what the net outputs. Hard
+           constraints beat soft penalty losses every time you can afford
+           them.
+        2. Warm start at the FAR-FIELD solution: for a plate with no hole,
+           uniaxial tension gives exactly ûx = x̂, ûy = -ν·ŷ. Writing
+           u = far_field + net-correction means the net starts at the
+           correct global stress state (σxx=1 everywhere) and only has to
+           carve out the hole's disturbance — without this, Adam happily
+           converges to a wrong 'zero stress near the hole' basin.
+        """
         n = mlp.apply(params, x)
-        return jnp.array([x[0] * n[0], x[1] * n[1]])
+        ux = x[0] * (1.0 + n[0])
+        uy = x[1] * (-self.mat.nu + n[1])
+        return jnp.array([ux, uy])
 
     def _sigma(self, params, x):
         """Nondimensional stress tensor at one point: differentiate the
@@ -102,9 +109,7 @@ class KirschPlate:
         return jnp.array([dS[0, 0, 0] + dS[0, 1, 1],
                           dS[1, 0, 0] + dS[1, 1, 1]])
 
-    # ------------------------------------------------------------------
     # loss terms — the trainer just sums these
-    # ------------------------------------------------------------------
     def loss_terms(self, params):
         vsig = jax.vmap(lambda p: self._sigma(params, p))
         vdiv = jax.vmap(lambda p: self._div_sigma(params, p))
@@ -130,9 +135,7 @@ class KirschPlate:
         return {"pde": pde, "bc_load": bc_load, "bc_free": bc_top,
                 "bc_hole": bc_hole, "bc_sym": bc_sym}
 
-    # ------------------------------------------------------------------
     # evaluation / postprocessing hooks
-    # ------------------------------------------------------------------
     def eval_points(self):
         return np.asarray(self.x_pde)
 

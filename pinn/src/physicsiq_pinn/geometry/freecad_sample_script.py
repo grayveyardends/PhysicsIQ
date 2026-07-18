@@ -1,7 +1,7 @@
 """freecad_sample_script.py — runs under `freecadcmd` (FreeCAD's headless
 Python), NOT in the JAX venv. It is the only place we touch OCCT.
 
-Job: STEP file in → point clouds out (.npz + .faces.json):
+Job: STEP file in -> point clouds out (.npz + .faces.json):
     interior            (N,3) points strictly inside the solid
     boundary_pts        (M,3) points on the surface
     boundary_normals    (M,3) outward unit normals
@@ -15,6 +15,7 @@ handling is unreliable across versions:
 
 import json
 import os
+import sys
 
 import numpy as np
 
@@ -28,36 +29,91 @@ n_boundary = int(os.environ.get("PIQ_N_BOUNDARY", "1500"))
 
 shape = Part.Shape()
 shape.read(step_path)
-if not shape.Solids:
+solids = shape.Solids
+if not solids:
     raise SystemExit("STEP file contains no solid")
-solid = shape.Solids[0]
+
+# An assembly arrives as several solids. Elasticity needs ONE connected body
+# — the load must have a path from the fixed face to the loaded face. The
+# workbench already fuses before exporting, but a STEP handed to us directly
+# (examples/, a file from disk) may not be, and taking Solids[0] and quietly
+# analyzing one arm of a drone frame is the worst possible failure: it looks
+# like it worked.
+if len(solids) > 1:
+    fused = solids[0].multiFuse(solids[1:]).removeSplitter()
+    if len(fused.Solids) != 1:
+        raise SystemExit(
+            f"STEP holds {len(fused.Solids)} solids that do not touch. "
+            "A stress analysis needs one connected body — fuse the parts.")
+    solid = fused.Solids[0]
+    print(f"fused {len(solids)} solids into one body", flush=True)
+else:
+    solid = solids[0]
 
 bb = solid.BoundBox
 L = max(bb.XLength, bb.YLength, bb.ZLength)
 rng = np.random.default_rng(0)
 
-# ---------------------------------------------------------------------
-# Interior: rejection sampling. Throw random points into the bounding
-# box, keep the ones OCCT says are inside. Dumb, robust, fast enough.
-# ---------------------------------------------------------------------
-interior = []
-attempts = 0
-while len(interior) < n_interior and attempts < 60 * n_interior:
-    attempts += 1
-    p = FreeCAD.Vector(rng.uniform(bb.XMin, bb.XMax),
-                       rng.uniform(bb.YMin, bb.YMax),
-                       rng.uniform(bb.ZMin, bb.ZMax))
-    if solid.isInside(p, 1e-6, False):   # False = strictly inside, not on skin
-        interior.append([p.x, p.y, p.z])
-interior = np.array(interior)
-print(f"sampled {len(interior)} interior points "
-      f"({attempts} attempts)", flush=True)
+# The native geomkit lib (built by the venv side, loaded here through
+# ctypes — it has no python in it, so the interpreter mismatch doesn't
+# matter) turns thousands of OCCT isInside round trips into one call
+# against the tessellated surface. Optional: everything below falls
+# back to the OCCT loops when it is missing.
+_geom = None
+try:
+    pinn_src = os.environ.get("PIQ_PINN_SRC")
+    if pinn_src and pinn_src not in sys.path:
+        sys.path.insert(0, pinn_src)
+    from physicsiq_pinn.geometry import native as _geom
+    if _geom.load() is None:
+        _geom = None
+except Exception:
+    _geom = None
 
-# ---------------------------------------------------------------------
+_mesh_tris = None
+if _geom is not None:
+    mv, mf = solid.tessellate(0.01 * L)
+    mv = np.array([[p.x, p.y, p.z] for p in mv])
+    mf = np.array(mf)
+    _mesh_tris = mv[mf]          # (T,3,3)
+
+lo = np.array([bb.XMin, bb.YMin, bb.ZMin])
+hi = np.array([bb.XMax, bb.YMax, bb.ZMax])
+
+interior = np.empty((0, 3))
+attempts = 0
+if _mesh_tris is not None:
+    # batch rejection sampling against the mesh; fill ratio adapts the
+    # batch size so hollow/lattice parts don't need dozens of rounds
+    fill = max(solid.Volume / max(np.prod(hi - lo), 1e-9), 1e-3)
+    got = []
+    while sum(len(g) for g in got) < n_interior and attempts < 100 * n_interior:
+        want = n_interior - sum(len(g) for g in got)
+        batch = int(min(4 * want / fill, 2e6))
+        cand = rng.uniform(lo, hi, size=(batch, 3))
+        attempts += batch
+        keep = _geom.points_in_mesh(_mesh_tris, cand)
+        got.append(cand[keep])
+    interior = np.vstack(got)[:n_interior] if got else interior
+if len(interior) < n_interior:
+    # OCCT fallback: dumb, robust, slow. Also catches the (unlikely)
+    # case of a mesh so coarse the batch sampler starved.
+    pts = list(interior)
+    occt_attempts = 0
+    while len(pts) < n_interior and occt_attempts < 60 * n_interior:
+        occt_attempts += 1
+        p = FreeCAD.Vector(*rng.uniform(lo, hi))
+        if solid.isInside(p, 1e-6, False):
+            pts.append(np.array([p.x, p.y, p.z]))
+    interior = np.array(pts)
+    attempts += occt_attempts
+print(f"sampled {len(interior)} interior points "
+      f"({attempts} attempts, native={'yes' if _mesh_tris is not None else 'no'})",
+      flush=True)
+
 # Boundary: tessellate each face into triangles, then sample points on
 # the triangles (area-weighted). Tessellation handles ANY face shape —
 # trimmed, curved, whatever — where naive UV-grid sampling falls apart.
-# ---------------------------------------------------------------------
 faces_meta = []
 b_pts, b_nrm, b_ids = [], [], []
 total_area = sum(f.Area for f in solid.Faces)
@@ -89,12 +145,15 @@ for fi, face in enumerate(solid.Faces):
     # Make normals point OUTWARD: nudge along the normal; if we end up
     # inside the solid, the normal was inward — flip it. Ground truth
     # beats trusting tessellation orientation.
-
     eps = 1e-3 * L
-    for k in range(len(pts)):
-        probe = FreeCAD.Vector(*(pts[k] + eps * nrm[k]))
-        if solid.isInside(probe, 1e-9, False):
-            nrm[k] = -nrm[k]
+    if _mesh_tris is not None:
+        flip = _geom.points_in_mesh(_mesh_tris, pts + eps * nrm)
+        nrm[flip] = -nrm[flip]
+    else:
+        for k in range(len(pts)):
+            probe = FreeCAD.Vector(*(pts[k] + eps * nrm[k]))
+            if solid.isInside(probe, 1e-9, False):
+                nrm[k] = -nrm[k]
 
     b_pts.append(pts)
     b_nrm.append(nrm)
@@ -115,5 +174,7 @@ np.savez_compressed(
 with open(out_npz + ".faces.json", "w", encoding="utf-8") as fh:
     json.dump({"bbox": [bb.XMin, bb.YMin, bb.ZMin,
                         bb.XMax, bb.YMax, bb.ZMax],
+               "volume_mm3": solid.Volume,   # exact, from OCCT — used to
+                                             # turn point counts into areas
                "faces": faces_meta}, fh, indent=2)
 print(f"wrote {out_npz}", flush=True)

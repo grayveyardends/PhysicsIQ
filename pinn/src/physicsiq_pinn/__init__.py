@@ -22,3 +22,11 @@ Package map (each folder is an extension point):
 """
 
 __version__ = "0.1.0"
+
+# JAX grabs 75% of ALL GPU memory the moment it initializes — rude when
+# llama-server (and FreeCAD's viewport) share the same 8 GB card. Ask it
+# to allocate as-needed instead. Must be set BEFORE the first jax import,
+# which is why it lives here in the package root.
+import os as _os
+
+_os.environ.setdefault("XLA_PYTHON_CLIENT_PREALLOCATE", "false")

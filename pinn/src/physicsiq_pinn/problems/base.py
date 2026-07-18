@@ -25,11 +25,9 @@ class Material:
     yield_mpa: float = 276.0  # yield strength (6061-T6)
 
 
-# ----------------------------------------------------------------------
 # Small-strain mechanics helpers shared by 2D and 3D problems.
 # All are written for ONE point and vmapped by the problem classes —
 # single-point code is far easier to read and to differentiate.
-# ----------------------------------------------------------------------
 
 def strain_from_jacobian(J):
     """ε = ½(∇u + ∇uᵀ). J is (dim, dim) = jacobian of displacement."""

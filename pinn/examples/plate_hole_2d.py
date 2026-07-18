@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 """plate_hole_2d.py — THE correctness check for the whole PINN package.
 
 Trains the Kirsch plate-with-hole problem and prints the stress
@@ -17,7 +18,10 @@ from physicsiq_pinn.problems.elasticity2d import KirschPlate  # noqa: E402
 from physicsiq_pinn.training import trainer  # noqa: E402
 from physicsiq_pinn.viz import plot  # noqa: E402
 
-epochs = int(sys.argv[1]) if len(sys.argv) > 1 else 5000
+# 60k sounds like a lot; it's ~2 minutes on the 4060. Elasticity PINNs
+# need the iterations — at 8k the hole's stress concentration hasn't
+# formed yet and Kt reads near zero.
+epochs = int(sys.argv[1]) if len(sys.argv) > 1 else 60000
 outdir = os.path.join(os.path.dirname(__file__), "..", "..", "runs",
                       "plate2d")
 os.makedirs(outdir, exist_ok=True)
@@ -29,7 +33,7 @@ params, history = trainer.train(problem, config)
 kt = problem.stress_concentration(params)
 print()
 print(f"stress concentration factor Kt = {kt:.2f}   (theory: ≈ 3.0)")
-verdict = "PASS ✓" if 2.6 <= kt <= 3.4 else "FAIL ✗ (train longer?)"
+verdict = "PASS" if 2.6 <= kt <= 3.4 else "FAIL (train longer?)"
 print(f"verdict: {verdict}")
 
 pts = problem.eval_points()

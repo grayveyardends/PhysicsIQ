@@ -1,4 +1,4 @@
-"""report.py — writes the two files that ARE the FreeCAD↔PINN contract.
+"""report.py — writes the two files that ARE the FreeCAD<->PINN contract.
 
     result.json   summary + ranked weak points (for the LLM agent)
     field.npz     points (N,3|2) + von_mises (N,)  (for the heatmap overlay)
