@@ -1,10 +1,11 @@
 # PhysicsIQ
 
 A local engineering copilot for FreeCAD:runs on a laptop GPU. has PINN for weak point detection
-
+![](assets/demo5.jpeg)
+![this is the pdf to model pipeline](assets/demo4.jpeg)
 ![this was made with fable](assets/fabledrone.png)
-![opus](assets/demoPinn.png)
 ![](assets/weakpoints.png)
+
 
 ## Quick start
 
