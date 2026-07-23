@@ -27,12 +27,21 @@ def page_png(pdf_path: str, page: int, zoom: float = 2.0) -> bytes:
         return pix.tobytes("png")
 
 
-def page_text(pdf_path: str, page: int) -> str:
-    """The PDF's embedded text layer (empty for scanned documents —
-    that's what the vision path is for)."""
+def page_text(pdf_path: str, page: int, ocr: bool = True,
+              dpi: int = 300) -> str:
+    """The PDF's embedded text layer. Scanned drawings have none, so when
+    the layer comes back empty we run the page through Tesseract instead."""
     import fitz
     with fitz.open(pdf_path) as doc:
-        return doc[page].get_text()
+        pg = doc[page]
+        txt = pg.get_text()
+        if txt.strip() or not ocr:
+            return txt
+        try:
+            tp = pg.get_textpage_ocr(flags=0, dpi=dpi, full=True)
+            return pg.get_text(textpage=tp)
+        except Exception:
+            return txt   # no tesseract / no tessdata: fall back to empty
 
 
 def main():
